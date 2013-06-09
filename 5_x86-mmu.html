@@ -1,0 +1,47 @@
+<html>
+<head>
+    <title>Homework: x86 paging</title>
+</head>
+<body>
+
+<h1>Homework: x86 paging</h1>
+
+<p><b>Read:</b> Read chapters 5 and 6 of the
+<a href="../readings/i386/toc.htm">Intel 80386 Reference Manual</a>.
+These chapters explain the x86 Memory Management Unit (MMU),
+which we will cover in lecture today and which you need
+to understand in order to do lab 2.
+
+<p><b>Hand-In Procedure:</b>
+
+You are to turn in this homework during lecture.
+Please write up your answers to the exercises below and hand them in
+to a 6.828 staff member at the beginning of lecture.
+
+<p><b>Assignment:</b>
+Get the source code for <a href="../labs/lab2/lab2.html">lab 2</a>,
+and read through the <code>i386_vm_init()</code> function in
+<tt>kern/pmap.c</tt>.
+Try to understand from the code what page mappings are being constructed.
+You may find the discussion in part 3 of
+the <a href="../labs/lab2/lab2.html">lab assignment</a> helpful.
+
+<p><b>Turn in:</b> Draw a diagram of the virtual address space constructed
+by <tt>i386_vm_init()</tt>, and identify any instances where multiple
+regions of virtual memory might be pointing to the same physical memory.
+Explain why the kernel might want to have different virtual addresses
+pointing to the same physical memory.
+
+<p>
+At the end of <tt>i386_vm_init()</tt>, the kernel finally enables paging,
+by setting the <code>CR0_PG</code> bit in the <code>%cr0</code> register.
+This operation is surrounded by additional code that first installs and
+then removes a mapping for virtual addresses 0 through 4MB, as well as
+some assembly instructions that manipulate segmentation registers.
+
+<p><b>Turn in:</b> Explain what would happen if paging was enabled without
+these additional mappings.  How are the segmentation registers modified in
+the inline assembly in <tt>i386_vm_init()</tt> to allow these mappings to
+be removed?
+
+</body></html>

@@ -1,0 +1,174 @@
+<html>
+<head>
+<title>Homework: intro to xv6</title>
+</head>
+<body>
+
+<h1>Homework: intro to xv6</h1>
+
+<p>This lecture is the introduction to xv6, our re-implementation of
+  Unix v6.  Read the source code in the assigned files;  The assigned
+  chapter for today provides a commentary on the  assigned files.
+<p> You won't have to understand the details yet; we will focus on how
+  the first user-level process comes into existence after the computer
+  is turned on.
+<p>
+
+<b>Hand-In Procedure</b>
+<p>
+You are to turn in this homework during lecture. Please
+write up your answers to the exercises below and hand them in to a
+6.828 staff member at the beginning of lecture.
+<p>
+
+<p><b>Assignment</b>: 
+<br>
+Fetch and un-tar the xv6 source:
+
+<pre>
+sh-3.00$ wget http://pdos.csail.mit.edu/6.828/2009/src/xv6-rev3.tar.gz 
+sh-3.00$ tar xzvf xv6-rev3.tar.gz
+xv6/
+xv6/asm.h
+xv6/bio.c
+xv6/bootasm.S
+xv6/bootmain.c
+...
+$
+</pre>
+
+Build xv6:
+<pre>
+$ cd xv6
+$ make
+gcc -O -nostdinc -I. -c bootmain.c
+gcc -nostdinc -I. -c bootasm.S
+ld -N -e start -Ttext 0x7C00 -o bootblock.o bootasm.o bootmain.o
+objdump -S bootblock.o > bootblock.asm
+objcopy -S -O binary bootblock.o bootblock
+...
+$ 
+</pre>
+
+Find the address of the <code>main</code> function by
+looking in <code>kernel.asm</code>:
+<pre>
+% grep main kernel.asm
+...
+00102454 &lt;mpmain&gt;:
+mpmain(void)
+001024d0 &lt;main&gt;:
+  10250d:       79 f1                   jns    102500 &lt;main+0x30&gt;
+  1025f3:       76 6f                   jbe    102664 &lt;main+0x194&gt;
+  102611:       74 2f                   je     102642 &lt;main+0x172&gt;
+</pre>
+In this case, the address is <code>001024d0</code>.
+<p>
+
+Run the kernel inside QEMU GDB, setting a breakpoint
+at the beginning of <code>main</code> (i.e., the address
+you just found).  (Note: If you're running your own copy of QEMU and
+have installed the QEMU accelerator kernel module (kqemu), you'll need
+to disable kqemu for these exercises using the <tt>-no-kqemu</tt>
+argument to QEMU in order to work around a bug in it's implementation
+of breakpoints.)
+
+<pre>
+$ make qemu-gdb
+...
+$ gdb
+GNU gdb 6.8-debian
+Copyright (C) 2008 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
++ target remote localhost:26000
+[New Thread 1]
+The target architecture is assumed to be i8086
+[f000:fff0] 0xffff0:    ljmp   $0xf000,$0xe05b
+0x0000fff0 in ?? ()
+(gdb) br * 0x001024d0
+Breakpoint 1 at 0x1024d0
+(gdb) c
+Continuing.
+The target architecture is assumed to be i386
+0x1024d0:       lea    0x4(%esp),%ecx
+
+Breakpoint 1, 0x001024d0 in ?? ()
+</pre>
+
+The details of what you see are likely to differ from the above output.
+Look at the registers and the stack contents:
+
+<pre>
+(gdb) info reg
+...
+(gdb) x/16x $esp
+...
+(gdb)
+</pre>
+
+Which part of the stack printout is actually the stack?
+(Hint: not all of it.)  Identify all the non-zero values
+on the stack.<p>
+
+<b>Turn in:</b> the output of <tt>x/16x $esp</tt> with 
+the valid part of the stack marked.  Write a short (3-5 word)
+comment next to each non-zero value explaining what it is.
+<p>
+
+Make a copy of Makefile called Makefile.uni, find the line that starts
+with <tt>QEMUOPTS</tt>, and change -smp 2 to -smp 1, and write out the
+file.  Then run 
+<pre>
+make -f Makefile.uni qemu-gdb
+</pre>
+
+<p>
+This will run QEMU with just one CPU.  Set a breakpoint at 0x0,
+set it running, and continue past the first break:
+
+<p>
+<pre>
+[f000:fff0] 0xffff0:    ljmp   $0xf000,$0xe05b
+0x0000fff0 in ?? ()
+(gdb) br * 0x0
+Breakpoint 1 at 0x0
+(gdb) c
+Continuing.
+[f000:   0] 0xf0000:    add    %al,(%bx,%si)
+
+Breakpoint 1, 0x00000000 in ?? ()
+(gdb) c
+Continuing.
+The target architecture is assumed to be i386
+0x0:    push   $0x24
+
+Breakpoint 1, 0x00000000 in ?? ()
+(gdb) 
+</pre>
+
+<p>
+The code that is running is from <tt>initcode.S</tt>; the
+<tt>push 0x00000024</tt> is the first instruction of the first
+user-level process. <tt>0x24</tt> is the address of some data; the
+process is pushing the address so that the kernel can later
+fetch the data.
+
+<p>
+<b>Turn in:</b> What physical address does the <tt>0x24</tt>
+translate to? That is, if the code were at this point to load
+32 bits from address <tt>0x24</tt>, from what physical address
+would the data be fetched? What is the data at that address?
+
+<p>
+Hint: You can use <tt>&lt;Ctrl-a c&gt;</tt> in the terminal you launched
+QEMU in to switch between the console and the QEMU monitor.  The QEMU
+monitor command <tt>info registers</tt> will print information about
+segments. You can use the <tt>xp /1xw addr</tt> QEMU monitor command to
+print one 32-bit value from physical memory. 
+
+</body>
+</html>

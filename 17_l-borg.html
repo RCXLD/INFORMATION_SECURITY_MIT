@@ -1,0 +1,289 @@
+<pre>
+Fault Tolerance Under UNIX, by Borg et al., ToCS 1989
+
+why are we looking at this paper?
+  we've talked about using multiple CPUs for performance
+  this paper uses multiple CPUs for fault-tolerance
+    uses IPC and virtual memory to help achieve fault-tolerance
+  gives a taste of extending IPC to distributed systems
+
+intended application (I'm making this up, paper doesn't say)
+  you have some big multi-user app
+    airline reservation? bank transactions?
+  implemented as a bunch of UNIX programs
+    lots of processes, they interact, and read/write FS
+  you want more performance than one CPU can give
+  you want more fault tolerance than one machine gives you
+    against h/w crashes
+    in the 1980s it was unheard of for computers to stay up for years
+
+their general approach
+  up to 16 machines
+    each with CPU, memory
+    some have disk &c
+  a broadcast bus connects all machines
+    probably very fast and implemented in dedicated hardware
+  all "global" state in "root" server
+    list of processes, where each lives, &c
+  separate file system server
+  separate paging server
+    process virtual address space was often bigger than physical RAM
+    so page in / page out on demand to pager's disk
+  IPC over bus to various servers and to processes on other machines
+    e.g. pipe(); fork(); wexec();
+    fork() requires IPC to notify root server, via bus
+    now the pipe goes via IPC to a different machine
+  each machine runs a Unix-derived kernel
+    local Unix kernel creates processes, memory, local scheduling, that's it
+    library (?) turns many system calls into IPC
+
+note there is no shared memory among machines!
+  quite different from xv6
+  why do you think they didn't have shared memory?
+  bus too slow?
+  maybe mostly the fault-tolerance scheme requires all interaction via msgs
+
+today this would be an unusual piece of hardware
+  we have shared-memory multiprocessors (w/ fast busses)
+  we have separate computers on LANs that communicate by messages
+  the paper's hardware is a mix of these
+
+what is the fault-tolerance problem the paper faces?
+  actually a little hard to guess
+    they don't say what specific faults tend to come up
+  evidently each machine's h/w is not particularly reliable
+  and evidently h/w is designed so each machine fails independently
+    unlike many of today's multiprocessors
+  they are not really trying to cope with s/w faults
+
+here's the core hard part:
+  *parts* of their system can fail
+    one machine (or one bus or one disk)
+  it is much harder to deal w/ partial failure than whole failure
+  our systems so far have had all-or-nothing faults
+    xv6 and JOS assume the whole computer works
+    or that the whole computer crashes and maybe reboots
+    reboot re-starts everything from a clean slate
+    would be hard to code client to deal w/ restarting JOS FS server
+
+paper's specific goals
+  survive any single hardware failure
+    thus h/w has at least two of everything, interchangeable
+    and basically two of every running process too, as we'll see
+  harness CPUs to increase performance as well as fault tolerance
+  can run ordinary existing UNIX applications
+  look like a single large UNIX machine
+  fault-tolerance and recovery transparent to applications
+
+these are actually very cool goals
+  very hard to find general-purpose transparent tools for fault-tolerance
+  most fault-tolerance today pretty specialized
+    app programmer often has to participate a lot 
+  stitching lots of machines into virtual single computer also neat
+    and unusual
+
+outline of the paper's design:
+  have a second copy of each process
+    the "backup"
+    on a different machine
+    record info about primary state for backup to use
+  if the primary's machine crashes
+    use recorded primary state to make backup == primary
+    then run just the backup
+    but now it's the "real" process
+  when the primary is fixed and restarts
+    have it be backup (or maybe primary)
+
+what are the challenges?
+  how to start backup w/ state == primary's last state?
+  how to avoid inconsistency during changeover?
+  how to do it all efficiently?
+  and keep it all invisible to applications...
+
+what state to collect to be able to make backup == primary?
+  really two basic techniques
+  1. "sync" (checkpoint) primary process's memory periodically
+  2. record all primary's messages after most recent sync
+
+note backup process does *not* execute along with the primary
+  doesn't load backup machine's CPU
+  we just record primary's memory and recent messages
+
+why not *just* periodic sync?
+  start backup with primary's checkpointed mem if primary fails
+  does a memory checkpoint/snapshot record 100% of what we need?
+    i.e. does it make backup identical to primary?
+  two problems
+    need to checkpoint process's kernel state, e.g. open channels
+    messages at primary after last sync
+
+why not *just* record all messages?
+  replay them to backup so that it mimics the primary
+  does recording messages get 100% of what we need?
+    i.e. does it make backup identical to primary?
+  what about e.g. if primary fork()s a new process?
+  what is the problem that leads them to sync memory as well?
+
+to where does primary sync the primary's pages?
+  why not direct to the backup?
+
+what pages does the primary send when syncing?
+
+can the primary execute while system sends sync pages?
+
+what if primary needs to page out to the pager between syncs?
+
+now, what about messages to/from primary after last sync?
+  what will go wrong if we just ignore this problem?
+
+can we avoid recording messages after sync by syncing *all* processes?
+  and rolling them *all* back to latest sync on a failure?
+    then just execute normally, no replay
+  two problems: hard to implement, what about external I/O
+
+the basic message idea
+  after primary failure, start executing backup w/ latest memory sync
+  feed it the recorded IPCs that the primary received (after sync)
+  ignore its outgoing IPCs
+  until it has caught up with primary's last known msg
+
+why does this work?
+  i.e. why will backup end up with identical state to primary?
+  if backup is the same program as primary,
+    and has same starting state,
+    and sees the same IPCs,
+    in the same order,
+    then it should remain identical
+  assuming no sources of non-determinism
+
+crucial that all inter-process interaction is via IPC
+  otherwise backup might miss inputs to primary that change its state
+  thus no shared memory between processes
+  and maybe even inter-process interaction within a machine may need to be recorded
+
+how does backup record primary's IPC messages?
+  bus is broadcast, so all hosts see all messages
+  message has multiple "to" fields
+    senders list backup as well as primary
+  so sender sends one msg on bus, p and b see it
+
+atomicity of reception at p and b important
+  both or neither should see each msg
+  otherwise p might act on msg, but b doesn't record it
+  would have trouble if sender sent two msgs, to p and b separately
+    what if sender crashes between them?
+
+how to ensure backup sees msgs in same order as primary?
+  only one message at a time on the bus, from/to anyone
+
+bus is special, *not* like a modern LAN
+  modern LANs don't totally order msgs
+    many senders can send "at the same time"
+  modern LANs don't have atomic broadcast
+    easy for one rcvr to see broadcast pkt, one not
+
+how to avoid non-determinism?
+  example? time() might return differently in primary and backup
+  so time() is really an IPC message to the time server
+    backup sees reply to primary's IPC request
+  presumably many system calls are really IPCs to some server
+  
+why are non-determinism and order a problem?
+  what if backup starts making different decisions than primary?
+  sure, we are ignoring its send()s, so no immediate harm
+  but if primary crashes, backup might then have different state
+    e.g. if file server, different contents
+    then clients would be surprised
+
+how does backup know what message to start playback at?
+
+what if there's a crash while primary is syncing?
+  will page server and backup disagree about what the last sync is?
+
+what about in-kernel state of process?
+  open files, current directory, fork()ed children, &c
+  will combination of process memory and recent messages rebuild?
+
+how does the system know if a primary has failed?
+  each machine periodically pings neighbor in "virtual ring"
+  if no response:
+    can I talk to anyone else?
+    if "no", I have failed! (maybe bus interface)
+    if "yes", broadcast to all that my neighbor has failed
+
+bus simplifies failure detection
+  no partition!
+  thus easy to avoid disagreement on whether primary is alive
+  still a risk -- maybe primary is overloaded, slow at returning pings
+    but neighbor's say is final
+
+how to get backup to to speed?
+  before machine-dead msg, backup was recording primary's msgs
+  after machine-dead msg, *everyone* will ignore primary
+  total msg order:
+    so everyone agrees on the point at which backup takes over
+    agreement on last msg that primary handled and backup recorded
+      and first msg that backup alone processes after it starts up
+    in case e.g. primary is merely flakey
+
+when machine-dead gets to head of backup's incoming msg queue:
+  1. fetch latest sync memory snapshot from page server
+  2. start executing process
+  3. feed it recorded msgs since last sync, to the machine-dead
+  4. ignore its output msgs
+  5. then let it execute normally
+
+note the process has no idea this is going on!
+  takes entire burden away from application programmer
+
+what about the process's in-kernel state?
+  file descriptors, current directory, fork()ed childre, &c
+  last sync msg describes all this state
+  roll-forward of msgs automatically works for post-sync state
+
+note: old backup is now the only copy of the process!
+  cannot tolerate another failure
+  must repair primary and get it going ASAP
+  mostly the same as backup
+
+is there a problem with externally visible I/O?
+  e.g. primary updates bank account, then tells external client "done"
+  what if primary crashes just as it is sending the "done"?
+
+do people build systems this way today?
+  no, for three big reasons:
+    h/w trends have not favored this approach
+    their semantics are too strict for many apps
+    transparency is not that important
+  h/w:
+    CPUs relatively much faster compared to networks/busses
+      makes close coupling unattractive
+      e.g. single bus, 3-way msgs, copying all of memory, &c
+    MUCH cheaper to use commodity hardware
+      ordinary servers, ordinary LANs
+      so specialized bus &c (which design needs) not attractive
+  wrong semantics:
+    would you replicate an e-mail server this way?
+    no:
+      want machines in separate machine rooms (power failure)
+      do not need to be identical copies
+        ok if rcv e-mail at one machine, forward later to other copy
+      if net goes down (or is slow), run them both, reconcile later
+    huge availability cost in requiring p and b be identical
+  application transparency:
+    programmers don't care about it, willing to work to get fault-tolerance
+    being somewhat non-transparent allows huge simplification and efficiency
+      do not have to slavishly copy all of process memory!
+      don't have to have backup be able to pick up at exact failure point
+    for example, this is a popular modern design
+      back-end storage server, perhaps a database
+      many front-end servers (to handle many users)
+      front-end servers only have "soft state"
+        real state in DB, can be read by any front-end
+      front-ends use transactions to deal with themselves crashing
+        being, various steps, end
+      if a front-end crashes, transactions roll back,
+        client can re-try at another front-end
+      DB must replicate, but only data, not process execution
+        replicating data much easier than execution
+</pre>

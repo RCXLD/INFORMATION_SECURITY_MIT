@@ -1,0 +1,58 @@
+<html>
+<head>
+<title>Homework: Read-Copy-Update</title>
+</head>
+<body>
+
+<style>
+TABLE.exercise {
+  width: 80%;
+  align: center;
+  padding: .5em .5em .5em .5em;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  background: #e0e0ff;
+  border: 1px solid #c0c0ff;
+}
+</style>
+
+<h1>Homework: Read-Copy-Update</h1>
+
+<p>
+<b>Read</b>: <a href="../readings/rcu.pdf">Read-Copy Update paper</a>
+
+<p>
+<b>Hand-In Procedure</b>
+<p>
+You are to turn in this homework during lecture. Please
+write up your answers to the exercises below and hand them in to a
+6.828 staff member at the beginning of lecture.
+
+<p>
+<b>Read-Copy Update</b>
+
+<p>
+This paper describes an approach to eliminating read locks from data
+structures that obey certain properties.  RCU has been used in various
+subsystems of Linux (there are even <a
+href="http://www.rdrop.com/users/paulmck/rclock/linuxusage.html">graphs</a>
+of RCU usage in Linux).
+
+<p>
+Please, hand in an answer to the following question:
+
+<p>
+<table class="exercise"><tr><td>
+The paper describes how they applied RCU techniques to Linux's file
+descriptor arrays.  Why it safe for read-only access to the file
+descriptor arrays to proceed without taking locks when RCU is used to
+expand file descriptor arrays?  Why are read-only operations that are
+operating on the "old" version of an array not in danger of accessing
+freed memory?
+</td></tr></table>
+
+<p>
+<b>This completes the homework.</b>
+
+</body>

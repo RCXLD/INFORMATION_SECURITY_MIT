@@ -1,0 +1,87 @@
+<html>
+<head>
+<title>Homework: xv6 and Interrupts and Exceptions</title>
+</head>
+<body>
+
+<h1>Homework: xv6 and Interrupts and Exceptions</h1>
+
+<p>
+<b>Read</b>: xv6
+<code>trapasm.S</code>,
+<code>trap.c</code>,
+<code>syscall.c</code>,
+<code>initcode.S</code>,
+<code>usys.S</code>.
+Skim
+<code>vectors.S</code>,
+<code>lapic.c</code>,
+<code>ioapic.c</code>,
+<code>picirq.c</code>.
+
+<p>
+<b>Hand-In Procedure</b>
+<p>
+You are to turn in this homework during lecture. Please
+write up your answers to the exercises below and hand them in to a
+6.828 staff member at the beginning of the lecture.
+<p>
+
+<b>Introduction</b>
+
+<p>Try to understand xv6's
+<code>trapasm.S</code>,
+<code>trap.c</code>,
+<code>syscall.c</code>,
+<code>initcode.S</code>,
+<code>usys.S</code>.
+Skim
+<code>vectors.S</code>,
+<code>lapic.c</code>,
+<code>ioapic.c</code>,
+<code>picirq.c</code>.
+<p>
+The assigned chapter for today provides a commentary for these files, but you
+may find it useful to also consult:
+
+<p>Chapter 5 of <a href="../readings/ia32/IA32-3A.pdf">IA-32 Intel
+Architecture Software Developer's Manual, Volume 3: System programming
+guide</a>; you can skip sections 5.7.1, 5.8.2, 5.12.2 and 5.14. Be aware
+that terms such as exceptions, traps, interrupts, faults and aborts
+have no standard meaning.
+
+<p>Chapter 9 of the 1987 <a href="../readings/i386/toc.htm">i386
+Programmer's Reference Manual</a> also covers exception and interrupt
+handling in IA32 processors.
+
+<p><b>Assignment</b>: 
+
+In xv6, set a breakpoint at the beginning of <code>syscall()</code> to
+catch the very first system call.  What values are on the stack at
+this point?  Turn in the output of <code>x/37x $esp</code> at that
+breakpoint with each value labeled as to what it is (e.g.,
+saved <code>%ebp</code> for <code>trap</code>,
+<code>trapframe.eip</code>, scratch space, etc.).
+
+<!--
+<p>
+As in Homework 3, you may find it easier to examine the appropriate
+stack when QEMU is simulating only one CPU instead of two.  To d
+this, make a copy of Makefile called Makefile.uni, find the line that
+starts with <tt>QEMUOPTS</tt>, and change <tt>-smp 2</tt> to <tt>-smp
+1</tt>, and write out the file. Then run
+<pre>
+make -f Makefile.uni qemu-gdb
+</pre>
+-->
+
+<p>
+
+<b>This completes the homework.</b>
+
+</body>
+
+
+
+
+
